@@ -117,7 +117,7 @@ A publicação é automatizada por **GitHub Actions** (`.github/workflows/deploy
 
 1. `npm ci` — instalação reproduzível a partir do `package-lock.json`.
 2. `npm run lint` — falha a publicação se houver problema.
-3. `npm run test` — falha a publicação se algum dos 89 testes quebrar.
+3. `npm run test` — falha a publicação se algum dos 105 testes quebrar.
 4. `npm run build` com `VITE_BASE` derivado automaticamente do nome do repositório (`github.event.repository.name`), o que dispensa configurar o subcaminho à mão.
 5. Publica o `dist/` no GitHub Pages.
 

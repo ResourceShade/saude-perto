@@ -4,6 +4,7 @@
 import { lazy } from 'react'
 import type { RouteObject } from 'react-router-dom'
 
+import { ErroDeRota } from '@/components/estados/ErroDeRota'
 import { LayoutPrincipal } from '@/layouts/LayoutPrincipal'
 import { Inicio } from '@/pages/Inicio'
 
@@ -45,18 +46,30 @@ export const rotas: RouteObject[] = [
     path: '/',
     element: <LayoutPrincipal />,
     children: [
-      { index: true, element: <Inicio /> },
-      { path: 'unidades', element: <Unidades /> },
-      { path: 'unidades/:id', element: <UnidadeDetalhe /> },
-      { path: 'campanhas', element: <Campanhas /> },
-      { path: 'primeiros-socorros', element: <PrimeirosSocorros /> },
-      { path: 'saude-mental', element: <SaudeMental /> },
-      { path: 'agendamento', element: <Agendamento /> },
-      { path: 'minhas-solicitacoes', element: <MinhasSolicitacoes /> },
-      { path: 'sobre', element: <Sobre /> },
-      { path: 'privacidade', element: <Privacidade /> },
-      { path: 'acessibilidade', element: <Acessibilidade /> },
-      { path: '*', element: <NaoEncontrado /> },
+      /*
+       * Rota sem caminho e sem elemento próprio: ela apenas renderiza os
+       * filhos. Existe para carregar o `errorElement` um nível abaixo do
+       * `LayoutPrincipal` — assim um erro em qualquer página aparece dentro
+       * do <main>, com cabeçalho e rodapé no lugar, em vez de substituir a
+       * casca inteira da aplicação.
+       */
+      {
+        errorElement: <ErroDeRota />,
+        children: [
+          { index: true, element: <Inicio /> },
+          { path: 'unidades', element: <Unidades /> },
+          { path: 'unidades/:id', element: <UnidadeDetalhe /> },
+          { path: 'campanhas', element: <Campanhas /> },
+          { path: 'primeiros-socorros', element: <PrimeirosSocorros /> },
+          { path: 'saude-mental', element: <SaudeMental /> },
+          { path: 'agendamento', element: <Agendamento /> },
+          { path: 'minhas-solicitacoes', element: <MinhasSolicitacoes /> },
+          { path: 'sobre', element: <Sobre /> },
+          { path: 'privacidade', element: <Privacidade /> },
+          { path: 'acessibilidade', element: <Acessibilidade /> },
+          { path: '*', element: <NaoEncontrado /> },
+        ],
+      },
     ],
   },
 ]

@@ -8,15 +8,84 @@ O projeto ainda não tem versões publicadas. Enquanto isso, as entradas são ag
 
 ---
 
-## [Não publicado] — Correção do CI
+## [Não publicado] — Recuperação de versão desatualizada
+
+### Adicionado
+
+- `src/lib/versaoDesatualizada.ts` — reconhece a falha de carregamento de pedaço de código sob demanda e controla uma recarga única.
+- `src/components/estados/ErroDeRota.tsx` — `errorElement` das rotas, com mensagem para quem usa o site em vez da tela de depuração do React Router.
+- `src/rotas.tsx` — rota sem caminho entre o `LayoutPrincipal` e as páginas, só para carregar o `errorElement` um nível abaixo. Assim o erro aparece dentro do `<main>`, com cabeçalho e rodapé no lugar, em vez de substituir a casca inteira.
+- 16 testes novos (`versaoDesatualizada.test.ts`, `ErroDeRota.test.tsx`). Total: **105 testes em 14 arquivos**.
+
+### O problema
+
+As rotas são carregadas sob demanda e cada pedaço tem um hash no nome. Publicada uma versão nova, os arquivos da anterior somem do servidor; quem estava com a aba aberta continua com o `index.html` antigo e pede um arquivo que já não existe.
+
+Em host estático com fallback de SPA o efeito é pior: o pedido **não devolve 404, devolve o `404.html` com status 200**. O navegador pede JavaScript, recebe HTML e lança `Failed to fetch dynamically imported module`. Medido no preview local:
+
+```
+/saude-perto/assets/Campanhas-8DZTvDt7.js  →  HTTP 200 | 758 bytes | text/html
+```
+
+O que aparecia era a tela padrão do React Router — "Unexpected Application Error!" seguido de "Hey developer 👋" e uma sugestão de escrever um `errorElement`. Tela de depuração, não de uso.
+
+### Como funciona
+
+Reconhecida a falha, a página recarrega **uma vez** e busca o `index.html` novo. A marca fica em `sessionStorage` (um carimbo de tempo, nada pessoal — `CLAUDE.md` §8), vale por 10 s e só nesta aba. Se a segunda tentativa também falhar, aparece a tela de erro, que **não promete** que tentar de novo resolve. Sem `sessionStorage` disponível (aba anônima, armazenamento bloqueado) não há recarga automática: sem onde registrar a tentativa, não há como evitar laço infinito.
+
+O reconhecimento é por mensagem, porque não existe tipo de erro específico — cobre as quatro frases de Chrome/Edge, Firefox, Safari e do pré-carregamento de CSS do Vite, cada uma com teste.
+
+### Custo no pacote, medido
+
+A primeira versão usava `Erro` e `Button` de `components/ui`. Como o `errorElement` **não pode** ser carregado sob demanda — se o erro é justamente um pedaço que não carrega, a tela de erro falharia junto —, ele vive no pacote inicial, e `Button` arrasta `radix-ui` e `class-variance-authority` para lá:
+
+| | Pacote inicial |
+|---|---|
+| Antes | 322,56 kB |
+| Com `Button` do design system | 358,02 kB |
+| Com `<button>` comum | **325,10 kB** |
+
+Reescrito sem o design system: **+2,5 kB** em vez de +35 kB. O resto da aplicação já usa `<button>` com as mesmas classes, então não houve perda de consistência visual. Registrado em P6.
+
+### Verificado no navegador
+
+Simulada uma publicação nova removendo `dist/assets/Campanhas-*.js` do servidor de preview:
+
+- Clicar em "Campanhas" → recarga automática → tela de erro. `performance.getEntriesByType('navigation')` devolveu `["reload"]`, confirmando que a recarga aconteceu de fato, e a marca em `sessionStorage` impediu a segunda.
+- `role="alert"` presente; `<title>` da aba vira "Erro ao carregar a página — Saúde Perto" (RNF02).
+- Restaurado o arquivo: navegação normal, sem erro, sem marca de recarga, `navigation type: "navigate"`.
+- Conteúdo restrito a 320 px: sem transbordo horizontal; botão 167×56 px e nenhum link abaixo de 24 px (WCAG 2.5.8). **Ressalva:** a janela do navegador não aceitou redimensionamento no ambiente de teste, então a restrição foi aplicada ao contêiner, não à janela — as media queries não foram exercitadas. A única classe responsiva da tela é o tamanho do `<h1>`, e o teste mediu a variante maior, que é o pior caso para transbordo.
+
+---
+
+## [Não publicado] — Correção do CI: versão do Node
 
 ### Corrigido
 
-- **A suíte falhava no GitHub Actions e passava localmente.** O `testTimeout` padrão do Vitest é 5 s; vários testes exercitam espera real do código de produção (limite de 1 req/s do Nominatim, backoff de 1,5 s entre espelhos da Overpass), e o caso mais lento leva ~2,6 s numa máquina de desenvolvimento. No runner do CI, mais lento, isso estourava. Definido `testTimeout: 20_000` e `hookTimeout: 20_000` em `vite.config.ts`.
+- **A suíte não rodava no GitHub Actions: o workflow usava Node 20.** O jsdom 30 traz um `undici` que, ao carregar `lib/interceptor/decompress.js`, chama `zlib.createZstdDecompress.bind(...)`. Essa API do Node só existe a partir da 22; na 20 ela é `undefined` e o módulo lança `TypeError: Cannot read properties of undefined (reading 'bind')`. Todos os workers do Vitest morrem antes de começar: **12 erros e nenhum teste executado** — não é um teste falhando, é a suíte não iniciando. O `vitest` declara a exigência em `engines`: `^22.12.0 || ^24.0.0 || >=26.0.0`.
+- `.github/workflows/deploy.yml`: `node-version` de `'20'` para `'24'`, a mesma versão usada no desenvolvimento, com comentário explicando por que não se deve baixar.
+- `package.json`: campo `engines.node` com `>=22.12.0`, e `.nvmrc` com `24`, para que a exigência fique declarada no repositório e não só no comentário do workflow.
 
-### Como foi diagnosticado
+### Correção de um diagnóstico anterior
 
-O log do CI não pôde ser lido sem permissão de administrador (HTTP 403), então a causa foi investigada por reprodução: fuso horário descartado (`TZ=UTC` passa), árvore de dependências descartada (`npm ci` limpo passa), `CI=true` passa, pool de forks passa. A hipótese de tempo limite foi **confirmada por experimento**: com `--testTimeout=2000`, exatamente o teste de 2,6 s falha com "Test timed out".
+**A causa registrada antes neste arquivo estava errada.** O primeiro diagnóstico atribuiu a falha ao `testTimeout` padrão de 5 s do Vitest. A hipótese era plausível e foi apoiada por um experimento real (com `--testTimeout=2000` o teste de 2,6 s falha), mas o experimento confirmava apenas que *aquele teste é lento* — não que fosse isso que o CI estava sofrendo. O push com essa correção **falhou no mesmo passo**, o que derrubou a hipótese.
+
+`testTimeout: 20_000` foi mantido: a folga continua justificada pela espera real dos serviços num runner mais lento. Mas não era a causa.
+
+### Como foi diagnosticado, desta vez
+
+O log do CI continua ilegível sem permissão de administrador (HTTP 403 em `/actions/runs/:id/logs`). Em vez de adivinhar de novo, a falha foi **reproduzida localmente** com o Node 20 de verdade: binário oficial `node-v20.20.2-linux-x64` baixado para a pasta temporária da sessão, com `sha256` conferido contra o `SHASUMS256.txt` do nodejs.org, extraído sem tocar no Node do sistema. Rodando a suíte com ele, o erro apareceu idêntico ao padrão do CI. A API ausente foi confirmada diretamente:
+
+| Node | `typeof zlib.createZstdDecompress` |
+|---|---|
+| v20.20.2 | `undefined` |
+| v24.15.0 | `function` |
+
+**Lição:** um experimento que confirma a hipótese não prova a causa, se não reproduzir o ambiente que falhou. Era possível reproduzir o Node 20 desde o começo e isso não foi feito.
+
+### Verificado depois da correção
+
+Com Node 24: `npm run lint` exit 0; `npm run test` **89 testes, 12 arquivos, exit 0**; `VITE_BASE="/saude-perto/" npm run build` exit 0, ativos gerados em `/saude-perto/assets/` e `dist/404.html` criado.
 
 ---
 

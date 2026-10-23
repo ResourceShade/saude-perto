@@ -2,7 +2,7 @@
 
 Aplicação web responsiva de **saúde preventiva e bem-estar comunitário**: encontrar unidades de saúde próximas, acompanhar campanhas de prevenção e acessar conteúdo educativo confiável sobre primeiros socorros e saúde mental.
 
-> **Status: 🟢 MVP completo. 16 requisitos funcionais implementados, 89 testes automatizados passando, build pronto para publicação.**
+> **Status: 🟢 MVP completo. 16 requisitos funcionais implementados, 105 testes automatizados passando, build pronto para publicação.**
 > Funcionam: página inicial, busca de unidades por localidade (OpenStreetMap), mapa interativo, filtros, detalhe da unidade, temas de prevenção, primeiros socorros, saúde mental, formulário de agendamento demonstrativo com validação, acompanhamento de solicitações, navegação responsiva e páginas informativas.
 >
 > O projeto **ainda não está publicado** e não há nenhum commit.
@@ -117,7 +117,7 @@ npm run dev             # http://localhost:5173/
 | `npm run build` | `tsc -b && vite build` | ✅ exit 0 |
 | `npm run lint` | `oxlint`, com plugin `jsx-a11y` | ✅ exit 0, zero avisos |
 | `npm run preview` | Servir o build localmente | ⚠️ não executado ainda |
-| `npm run test` | Vitest, 89 testes | ✅ exit 0, ~6 s |
+| `npm run test` | Vitest, 105 testes | ✅ exit 0, ~7 s |
 | `npm run test:watch` | Vitest em modo contínuo | ✅ |
 
 ## Variáveis de ambiente
@@ -165,7 +165,7 @@ Detalhes e resultados reais: **`docs/testes.md`**.
 
 Plano: testes unitários de utilitários e esquemas Zod; testes de componente com Testing Library priorizando consultas acessíveis (`getByRole`, `getByLabelText`); testes de integração dos fluxos de busca e de formulário com serviços de rede simulados; verificação manual de responsividade, navegação por teclado e contraste.
 
-**89 testes em 12 arquivos, todos passando** (verificado em 2026-10-23). Nenhum teste toca a rede: o setup substitui `fetch` por uma função que falha se algum teste tentar sair para a internet.
+**105 testes em 14 arquivos, todos passando** (verificado em 2026-10-23). Nenhum teste toca a rede: o setup substitui `fetch` por uma função que falha se algum teste tentar sair para a internet.
 
 Dois deles guardam compromissos de **integridade**, não de estética: a tela de confirmação nunca pode dizer "consulta confirmada" ou variantes, e dado demonstrativo sempre tem de se declarar. Se alguém quebrar isso, a suíte falha antes de a aplicação mentir sobre saúde.
 

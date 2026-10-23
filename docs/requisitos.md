@@ -13,7 +13,7 @@ O estado consolidado vive em `docs/PROJECT_MEMORY.md` §E, que é a fonte de ver
 | Implementada | 9 | 2 (RNF03, RNF08) |
 | Planejada | 0 | 7 |
 
-Os 16 requisitos funcionais estão implementados. **89 testes automatizados** cobrem os critérios dos 7 marcados como Testada; a auditoria de acessibilidade na tela renderizada cobre RNF04.
+Os 16 requisitos funcionais estão implementados. **105 testes automatizados** cobrem os critérios dos 7 marcados como Testada; a auditoria de acessibilidade na tela renderizada cobre RNF04.
 
 Segue sem cobertura: **leitor de tela real** (P13) e **dispositivo móvel real**.
 

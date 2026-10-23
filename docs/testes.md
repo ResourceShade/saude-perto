@@ -6,17 +6,23 @@ Estratégia, ferramentas e **resultados reais** de teste.
 
 > ## ✅ Estado atual
 >
-> **89 testes em 12 arquivos, todos passando.** `npm run test` → exit 0, determinístico, ~6 s.
+> **105 testes em 14 arquivos, todos passando.** `npm run test` → exit 0, determinístico, ~7 s.
 >
 > **Nenhum teste toca a rede.** `src/test/setup.ts` substitui `fetch` por uma função que falha com mensagem explícita se algum teste tentar sair para a internet.
 >
 > O que **não** está coberto: leitor de tela real (P13), dispositivo móvel real, e o caminho de sucesso da Overpass na interface (P2).
 >
+> ### ⚠️ A suíte exige Node 22.12 ou superior
+>
+> O jsdom 30 traz um `undici` que chama `zlib.createZstdDecompress`, API que só existe a partir do Node 22. **No Node 20 os workers do Vitest morrem ao carregar e nenhum teste roda** — a saída mostra `12 errors`, `no tests`, e não uma falha de asserção. O `vitest` declara a exigência em `engines`: `^22.12.0 || ^24.0.0 || >=26.0.0`.
+>
+> Por isso o repositório fixa `engines.node` em `package.json`, `.nvmrc` com `24` e `node-version: '24'` no workflow. **Não baixar a versão do Node no CI.** Foi exatamente essa a causa da primeira falha de publicação; ver `docs/CHANGELOG.md`.
+>
 > ### ⚠️ Tempo limite dos testes
 >
-> `vite.config.ts` define `testTimeout: 20_000`, acima dos 5 s padrão do Vitest. Não é folga arbitrária: vários testes exercitam **espera real do código de produção** — o limite de 1 requisição por segundo do Nominatim e o backoff de 1,5 s entre os espelhos da Overpass. O caso mais lento ("declara quando a lista veio do fallback") leva ~2,6 s numa máquina de desenvolvimento.
+> `vite.config.ts` define `testTimeout: 20_000`, acima dos 5 s padrão do Vitest. Não é folga arbitrária: vários testes exercitam **espera real do código de produção** — o limite de 1 requisição por segundo do Nominatim e o backoff de 1,5 s entre os espelhos da Overpass. O caso mais lento ("declara quando a lista veio do fallback") leva ~2,6 s numa máquina de desenvolvimento, e o runner do CI é mais lento.
 >
-> **Com o padrão de 5 s a suíte falhou no GitHub Actions e passou localmente**, porque o runner do CI é mais lento. Ao mexer nos tempos de espera dos serviços, reavalie este valor.
+> A folga é prudente, mas **não era a causa da falha no CI** — essa atribuição, registrada antes, estava errada. Ao mexer nos tempos de espera dos serviços, reavalie este valor.
 
 ## 1. Ferramentas previstas
 
@@ -137,6 +143,8 @@ Verificação manual nas larguras **320, 375, 768, 1024 e 1440 px** (RNF01): sem
 | Data | Comando | Resultado |
 |---|---|---|
 | 2026-10-23 | `npm run test` | ✅ **89 passed (89)**, 12 arquivos, exit 0 |
+| 2026-10-23 | `npm run test` (após `ErroDeRota`) | ✅ **105 passed (105)**, 14 arquivos, exit 0, ~7 s |
+| 2026-10-23 | mesma suíte em **Node 20** | ❌ **12 errors, no tests** — jsdom/undici exige Node ≥ 22 (ver aviso no topo) |
 
 ### Cobertura por arquivo
 
@@ -154,6 +162,8 @@ Verificação manual nas larguras **320, 375, 768, 1024 e 1440 px** (RNF01): sem
 | `components/layout/SkipLink.test.tsx` | primeiro elemento focável |
 | `components/estados/SeloDadoDemo.test.tsx` | decisão D7 na tela |
 | `components/unidades/UnidadeCard.test.tsx` | "Não informado" para campo ausente |
+| `lib/versaoDesatualizada.test.ts` | reconhecimento das 4 mensagens de navegador; trava de recarga única |
+| `components/estados/ErroDeRota.test.tsx` | recarga única após publicação nova; **a tela de depuração do React Router nunca aparece** |
 
 ### Os dois testes de integridade
 

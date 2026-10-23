@@ -42,8 +42,16 @@ Versões **reais instaladas**, confirmadas por `npm ls --depth=0` em 2026-10-23.
 | Rotas | `react-router-dom` | 7.18.4 |
 | Lint | `oxlint` | 1.89.0 |
 | Tipos Node | `@types/node` | 24.19.2 |
+| Formulário | `react-hook-form` | 7.90.0 |
+| Validação | `zod` | 4.6.7 |
+| Mapa | `leaflet` / `react-leaflet` | 1.9.4 / 5.0.0 |
+| Testes | `vitest` | 5.0.5 |
+| Testes (DOM) | `jsdom` | 30.1.3 |
+| Testes (React) | `@testing-library/react` | 16.3.3 |
+| Testes (eventos) | `@testing-library/user-event` | 14.6.8 |
+| Testes (asserções) | `@testing-library/jest-dom` | 7.0.1 |
 
-**Ainda não instalado** (fases futuras): `react-hook-form`, `zod`, `leaflet`, `react-leaflet`, `vitest`, `@testing-library/react`.
+**Ambiente de execução:** Node **≥ 22.12** (declarado em `package.json` → `engines` e em `.nvmrc`). Desenvolvido e verificado na v24.15.0; o CI usa a 24.
 
 `@fontsource-variable/geist` foi **desinstalado** na Fase 3: era herança do preset do shadcn, substituída por Archivo (ver `docs/arquitetura.md` §10).
 
@@ -52,15 +60,17 @@ Versões **reais instaladas**, confirmadas por `npm ls --depth=0` em 2026-10-23.
 > ⚠️ **Tailwind 4 não usa `tailwind.config.js`.** O tema vive em `src/index.css` via `@theme`.
 >
 > ⚠️ **TypeScript 6 deprecou `baseUrl`.** O alias `@/*` usa apenas `paths`. Não reintroduzir `baseUrl` — quebra o build.
+>
+> ⚠️ **Não baixar o Node para a 20.** O jsdom 30 traz um `undici` que chama `zlib.createZstdDecompress`, API que só existe a partir da 22. Na 20 os workers do Vitest morrem ao carregar e **nenhum teste roda** (`12 errors`, `no tests`) — foi a causa da primeira falha de publicação. Ver `docs/CHANGELOG.md`.
 
 ## 4. Estrutura de pastas
 
-> ⚠️ Existem: `components/layout/`, `components/estados/`, `components/ui/`, `layouts/`, `pages/`, `hooks/`, `types/`, `data/`, `lib/`. **Ainda não existem:** `services/`, `schemas/`, `test/`. Estado real confirmado: `docs/PROJECT_MEMORY.md` §D.
+> ⚠️ Todas as pastas abaixo **existem**, inclusive `services/`, `schemas/` e `test/`. Estado real confirmado: `docs/PROJECT_MEMORY.md` §D.
 
 ```
-/                      CLAUDE.md, README.md, (futuro) package.json, vite.config.ts, .env.example, .gitignore
+/                      CLAUDE.md, README.md, package.json, vite.config.ts, .nvmrc, .env.example, .gitignore
 /docs                  documentação e memória do projeto
-/src                   (planejado)
+/src
   /components          componentes reutilizáveis
     /ui                primitivos shadcn/ui
   /pages               uma pasta/arquivo por rota
@@ -85,8 +95,7 @@ Todos **executados e confirmados** em 2026-10-23.
 | Build | `npm run build` | ✅ `tsc -b && vite build`, exit 0 |
 | Lint | `npm run lint` | ✅ `oxlint`, exit 0, zero avisos |
 | Preview | `npm run preview` | ✅ verificado (ver aviso abaixo) |
-| Testes | `npm run test` | ✅ **89 testes**, exit 0, ~6 s |
-| Testes | — | ❌ **não existe.** Vitest não instalado (Fase 7) |
+| Testes | `npm run test` | ✅ **105 testes** em 14 arquivos, exit 0, ~7 s |
 
 > ⚠️ **Publicação em subcaminho:** `VITE_BASE` precisa estar presente no **build e no preview**. O `vite preview` relê a configuração e, sem a variável, serve os ativos no caminho errado — produzindo uma **página em branco sem erro no console**. Ver `docs/deploy.md` §4.
 >
@@ -119,6 +128,7 @@ Todos **executados e confirmados** em 2026-10-23.
 9. **Avaliar antes de adicionar dependência:** necessidade real, compatibilidade e registro da decisão.
 10. **Nenhuma `box-shadow` e nenhum gradiente.** A separação entre seções vem de cor e borda. Raio (`--radius`) só em elementos clicáveis — faixas e seções ficam retas. Ver `docs/arquitetura.md` §10.
 11. **Alterar a paleta exige remedir o contraste** antes de a mudança entrar. O par amarelo-sobre-verde está em 4,30:1 e **não pode** receber texto corrido.
+12. **A tela de erro das rotas (`components/estados/ErroDeRota.tsx`) fica no pacote inicial e deve continuar pobre em dependências.** Ela não pode ser carregada sob demanda — se o erro for justamente um pedaço que não carrega, ela falharia junto. Usar `<button>` comum, não o `Button` de `components/ui`: medido, ele arrasta `radix-ui` e custa **+35 kB** no primeiro carregamento (D17). Ao mexer nela, medir o pacote antes e depois.
 
 ## 8. Segurança e privacidade
 

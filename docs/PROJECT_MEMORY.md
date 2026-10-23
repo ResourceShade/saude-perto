@@ -35,7 +35,7 @@
 | Área | Estado |
 |---|---|
 | 16 requisitos funcionais | ✅ implementados |
-| Testes automatizados | ✅ **89 em 12 arquivos**, exit 0 |
+| Testes automatizados | ✅ **105 em 14 arquivos**, exit 0 |
 | Auditoria de acessibilidade | ✅ medida na tela renderizada, 0 falhas de contraste |
 | Roteamento em host estático (D14) | ✅ **resolvido e testado** em simulador do GitHub Pages |
 | `base` para subcaminho | ✅ configurável por `VITE_BASE`; `basename` do roteador acompanha |
@@ -80,12 +80,14 @@ Varredura de segurança do `dist/`: nenhum `.env`, nenhuma chave, nenhum segredo
 | P2 | Overpass intermitente; sucesso nunca visto na interface | Alta |
 | P3 | Plano B de dados de estabelecimentos | Alta |
 | P4 | `gh` não instalado — criar o repositório pela web | Baixa |
-| P6 | Pacote inicial ~322 kB | Média |
+| P6 | Pacote inicial 325,10 kB | Média |
 | P7 | Armadilhas de configuração registradas | Baixa |
 | P11 | Só 15 de 29 unidades do OSM trazem município | Baixa |
 | P12 | Busca pode levar ~26 s antes do fallback | Média |
 | P13 | Leitor de tela real nunca testado | Média |
 | **P14** | Status HTTP 404 em rotas válidas, custo do fallback de SPA. Pode afetar indexação | Baixa |
+| **P15** | Publicação no GitHub Pages ainda não concluída — duas execuções do CI falharam | Alta |
+| **P16** | Diagnóstico meu dado como confirmado sem reproduzir o ambiente que falhou | Média |
 
 ## C. Decisões técnicas
 
@@ -201,6 +203,14 @@ Varredura de segurança do `dist/`: nenhum `.env`, nenhuma chave, nenhum segredo
 - **Motivo:** `@hookform/resolvers@6` falhou a instalação com `ERESOLVE`: arrasta `@typeschema/main` e `effect` como peers opcionais conflitantes. O resolver são ~20 linhas.
 - **Alternativas:** `--legacy-peer-deps` (descartado — mascara conflito real).
 - **Consequências:** Uma dependência a menos. Mostra só a primeira mensagem por campo, para não sobrecarregar leitores de tela.
+- **Status:** vigente
+
+### D17 — Recarga única após publicação nova, com tela de erro própria
+- **Decisão:** As rotas carregadas sob demanda ganham um `errorElement`. Ao reconhecer uma falha de import dinâmico, a página recarrega **uma vez**; falhando de novo, mostra uma tela de erro própria. O `errorElement` fica numa rota sem caminho, abaixo do `LayoutPrincipal`, para o erro aparecer dentro do `<main>` com cabeçalho e rodapé no lugar.
+- **Motivo:** Publicada uma versão nova, os pedaços de código com hash antigo somem do servidor e quem está com a aba aberta recebe `Failed to fetch dynamically imported module`. Sem `errorElement`, aparece a tela de depuração do React Router ("Unexpected Application Error!", "Hey developer 👋"), inaceitável num projeto de portfólio. Reproduzido no preview local em 2026-10-23.
+- **Alternativas:** Não fazer nada (descartado — a tela padrão fala com o desenvolvedor); recarregar sem limite (descartado — laço infinito se a falha for permanente); carregar a tela de erro sob demanda (**impossível** — se o erro é um pedaço que não carrega, a tela de erro falharia junto).
+- **Consequências:** O componente fica no pacote inicial e por isso é deliberadamente pobre em dependências: `<button>` comum em vez do `Button` de `components/ui`, que custaria +35 kB de `radix-ui` no primeiro carregamento. Custo real medido: +2,5 kB. **Não trocar por componentes do design system.**
+- **Relação com D15:** D15 recusou `sessionStorage` para **dados pessoais** do formulário. Aqui o que se grava é um carimbo de tempo numérico, sem nada pessoal, apenas para impedir laço de recarga — não há contradição.
 - **Status:** vigente
 
 ## D. Estrutura atual do projeto
@@ -392,11 +402,11 @@ Não há API pública confiável. Será conteúdo editorial redigido a partir de
 - **Próxima ação:** Decidir na Fase 8. **Nenhum commit sem autorização do usuário.**
 - **Bloqueios:** Nenhum.
 
-### P6 — Bundle em 336,10 kB
-- **Descrição:** O build passou de 256,86 kB para **336,10 kB** de JS (105,98 kB gzip) na Fase 3, um aumento de ~79 kB. O roteador responde pela maior parte. O CSS foi de 24,23 kB para 31,08 kB. Nenhuma rota é carregada de forma preguiçosa.
-- **Impacto:** Médio, e crescente. RNF05 exige atenção a desempenho, o público usa rede móvel e o Leaflet ainda vai entrar.
+### P6 — Pacote inicial em 325,10 kB
+- **Descrição:** Pacote inicial de JS em **325,10 kB** (103,37 kB gzip), medido em 2026-10-23 com `VITE_BASE="/saude-perto/" npm run build`. As rotas já são carregadas sob demanda e o mapa está num pedaço separado (154,85 kB), que só baixa em `/unidades`.
+- **Impacto:** Médio. RNF05 exige atenção a desempenho e o público usa rede móvel.
 - **Prioridade:** Média
-- **Próxima ação:** Na Fase 4, dividir as rotas com `React.lazy` — o roteador já está estruturado para isso. Na Fase 5, carregar o mapa de forma preguiçosa. Na Fase 8, revisar o total.
+- **Próxima ação:** Se for mexer, medir antes e depois. Já se sabe que `radix-ui` é caro: importar `Button` de `components/ui` no pacote inicial custou **+35 kB** (D17). O resto da aplicação usa `<button>` com classes diretas; migrar o pouco que usa `Button` provavelmente tira `radix-ui` do caminho crítico.
 - **Bloqueios:** Nenhum.
 
 ### P7 — Armadilhas de configuração a não repetir
@@ -416,6 +426,22 @@ Não há API pública confiável. Será conteúdo editorial redigido a partir de
 - **Impacto:** Baixo, desde que respeitado. O par é usado no item ativo da navegação e no link de ação da faixa principal.
 - **Prioridade:** Baixa
 - **Próxima ação:** Nenhuma imediata. **Nunca usar esse par em texto corrido.** Se a navegação precisar de texto menor em amarelo, escurecer o verde ou clarear o amarelo e **remedir**.
+- **Bloqueios:** Nenhum.
+
+### P15 — Publicação no GitHub Pages ainda não concluída
+- **Descrição:** Dois pushes foram feitos e **as duas execuções do workflow falharam no passo "Testes"**, antes do build. Nada foi publicado; `https://resourceshade.github.io/saude-perto/` responde HTTP 404 e a API `/pages` também devolve 404 (Pages nunca foi habilitado, porque é o próprio workflow que o habilita e ele nunca chegou lá).
+- **Causa, agora identificada e reproduzida:** o workflow usava `node-version: '20'`. O jsdom 30 traz um `undici` que chama `zlib.createZstdDecompress.bind(...)` ao carregar; essa API do Node só existe a partir da 22. Na 20 ela é `undefined`, o módulo lança `TypeError: Cannot read properties of undefined (reading 'bind')` e **todos os workers do Vitest morrem antes de executar qualquer teste** — `12 errors`, `no tests`. O `vitest` declara a exigência em `engines`: `^22.12.0 || ^24.0.0 || >=26.0.0`.
+- **Como foi reproduzida:** binário oficial `node-v20.20.2-linux-x64` baixado para a pasta temporária da sessão, `sha256` conferido contra o `SHASUMS256.txt` do nodejs.org, extraído sem tocar no Node do sistema. A suíte rodada com ele falhou de forma idêntica. `typeof zlib.createZstdDecompress`: `undefined` na v20.20.2, `function` na v24.15.0.
+- **Correção aplicada, ainda não validada no CI:** `node-version: '24'` no workflow, `engines.node: ">=22.12.0"` em `package.json`, `.nvmrc` com `24`.
+- **Impacto:** Alto até publicar — é o requisito de entrega.
+- **Prioridade:** Alta
+- **Próxima ação:** o usuário faz o push; conferir a execução pela API e, se publicar, verificar o site no navegador (navegação, recarga de URL profunda, mapa, formulário, 320 px).
+- **Bloqueios:** o log do CI não é legível por aqui — `GET /actions/runs/:id/logs` devolve **HTTP 403**, exige permissão de administrador. Diagnóstico depende de reprodução local ou de o usuário colar o erro.
+
+### P16 — Um diagnóstico meu foi dado como confirmado sem reproduzir o ambiente
+- **Descrição:** A primeira falha do CI foi atribuída ao `testTimeout` padrão de 5 s do Vitest. A hipótese foi apoiada por um experimento real (`--testTimeout=2000` faz falhar exatamente o teste de 2,6 s), e isso foi registrado em `docs/CHANGELOG.md` e `docs/testes.md` como "confirmado por experimento". **Estava errado.** O experimento provava apenas que aquele teste é lento, não que fosse isso que o CI sofria. O push com a correção falhou no mesmo passo.
+- **Impacto:** Médio. Custou um ciclo de push ao usuário e documentação incorreta, que foi corrigida.
+- **Próxima ação:** Nenhuma pendente — a documentação já traz a correção explícita. **Regra:** diagnóstico de falha em ambiente diferente só vale depois de reproduzir *aquele* ambiente. Era possível baixar o Node 20 desde o início.
 - **Bloqueios:** Nenhum.
 
 ### Resolvidas nesta sessão
@@ -467,14 +493,18 @@ Leitor de tela real (P13), dispositivo móvel real, caminho de sucesso da Overpa
 
 ### Estado de partida
 
-**As 8 fases do plano original estão concluídas.** 16 requisitos funcionais implementados, 89 testes passando, acessibilidade auditada, build pronto para publicação. **Nada commitado, nada publicado.**
+**As 8 fases do plano original estão concluídas.** 16 requisitos funcionais implementados, 105 testes passando localmente em Node 24, acessibilidade auditada, build verificado.
+
+**Repositório remoto:** `https://github.com/ResourceShade/saude-perto` — público, branch padrão `main`, 2 commits enviados pelo usuário. **Ainda não publicado:** as duas execuções do workflow falharam no passo "Testes" (ver P15). O site responde 404 e o GitHub Pages nunca foi habilitado.
+
+**Correção pendente de push** (o usuário faz todas as operações de git): `node-version: '24'` no workflow, `engines.node` em `package.json`, `.nvmrc`.
 
 ### Caminhos possíveis, em ordem de valor
 
-**1. Publicar (quando o usuário autorizar).**
-- `git add -A && git commit` — primeiro commit, branch `main`.
-- Criar o repositório `saude-perto` no GitHub pela interface web (o `gh` não está instalado, P4).
-- `VITE_BASE=/saude-perto/ npm run build` e publicar o `dist/`.
+**1. Concluir a publicação — P15.**
+- O usuário faz `git add -A && git commit && git push` com a correção da versão do Node.
+- Conferir a execução por `GET /repos/ResourceShade/saude-perto/actions/runs` (o log em si dá 403).
+- O workflow habilita o Pages sozinho (`enablement: true` em `configure-pages`); não é preciso mexer em Settings.
 - **Verificar o site publicado antes de anunciar qualquer URL**: navegação, recarga de URL profunda, mapa, formulário, 320 px.
 - Só então registrar a URL no README.
 
