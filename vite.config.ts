@@ -25,5 +25,14 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    /**
+     * O padrão do Vitest são 5 s. Vários testes exercitam comportamento de
+     * espera REAL do código de produção: o limite de 1 requisição por segundo
+     * do Nominatim e o backoff de 1,5 s entre os espelhos da Overpass. O caso
+     * mais lento leva ~2,6 s numa máquina de desenvolvimento, e o runner do CI
+     * é mais lento que isso — com 5 s a suíte falha lá e passa aqui.
+     */
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
 })

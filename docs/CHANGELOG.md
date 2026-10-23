@@ -8,6 +8,18 @@ O projeto ainda não tem versões publicadas. Enquanto isso, as entradas são ag
 
 ---
 
+## [Não publicado] — Correção do CI
+
+### Corrigido
+
+- **A suíte falhava no GitHub Actions e passava localmente.** O `testTimeout` padrão do Vitest é 5 s; vários testes exercitam espera real do código de produção (limite de 1 req/s do Nominatim, backoff de 1,5 s entre espelhos da Overpass), e o caso mais lento leva ~2,6 s numa máquina de desenvolvimento. No runner do CI, mais lento, isso estourava. Definido `testTimeout: 20_000` e `hookTimeout: 20_000` em `vite.config.ts`.
+
+### Como foi diagnosticado
+
+O log do CI não pôde ser lido sem permissão de administrador (HTTP 403), então a causa foi investigada por reprodução: fuso horário descartado (`TZ=UTC` passa), árvore de dependências descartada (`npm ci` limpo passa), `CI=true` passa, pool de forks passa. A hipótese de tempo limite foi **confirmada por experimento**: com `--testTimeout=2000`, exatamente o teste de 2,6 s falha com "Test timed out".
+
+---
+
 ## [Não publicado] — Preparação para o GitHub
 
 ### Adicionado

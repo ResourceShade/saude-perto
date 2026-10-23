@@ -11,6 +11,12 @@ Estratégia, ferramentas e **resultados reais** de teste.
 > **Nenhum teste toca a rede.** `src/test/setup.ts` substitui `fetch` por uma função que falha com mensagem explícita se algum teste tentar sair para a internet.
 >
 > O que **não** está coberto: leitor de tela real (P13), dispositivo móvel real, e o caminho de sucesso da Overpass na interface (P2).
+>
+> ### ⚠️ Tempo limite dos testes
+>
+> `vite.config.ts` define `testTimeout: 20_000`, acima dos 5 s padrão do Vitest. Não é folga arbitrária: vários testes exercitam **espera real do código de produção** — o limite de 1 requisição por segundo do Nominatim e o backoff de 1,5 s entre os espelhos da Overpass. O caso mais lento ("declara quando a lista veio do fallback") leva ~2,6 s numa máquina de desenvolvimento.
+>
+> **Com o padrão de 5 s a suíte falhou no GitHub Actions e passou localmente**, porque o runner do CI é mais lento. Ao mexer nos tempos de espera dos serviços, reavalie este valor.
 
 ## 1. Ferramentas previstas
 
