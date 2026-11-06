@@ -1,0 +1,5 @@
+Desenvolvimento e Implementação do Sistema
+
+Durante o desenvolvimento do projeto Saúde Perto, foi implementado um sistema de autenticação com login, cadastro de usuários e recuperação de senha, utilizando o Supabase. O formulário de cadastro foi ampliado para incluir telefone, endereço e data de nascimento.
+
+Também foram realizadas melhorias na organização do código e na interface. O projeto foi integrado ao GitHub para controle de versões e publicado na plataforma Vercel, permitindo seu acesso pela internet. Além disso, foi configurado o serviço Brevo para envio de e-mails de confirmação e recuperação de senha.
