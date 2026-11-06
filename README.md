@@ -1,5 +1,11 @@
 # Saúde Perto
 
+Integrantes do projeto:
+
+Arthur Felix Oliveira Torres — Matrícula: 01848455
+Felipe Gabriel Barbosa Dionizio — Matrícula: 01848719
+Tiago Renato Vinícius Silva — Matrícula: 01808230
+
 Aplicação web responsiva de **saúde preventiva e bem-estar comunitário**: encontrar unidades de saúde próximas, acompanhar campanhas de prevenção e acessar conteúdo educativo confiável sobre primeiros socorros e saúde mental.
 
 > **Status: 🟢 MVP completo. 16 requisitos funcionais implementados, 105 testes automatizados passando, build pronto para publicação.**
