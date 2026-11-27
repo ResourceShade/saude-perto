@@ -16,7 +16,11 @@ import { RotaProtegida } from '@/components/RotaProtegida'
 const Login = lazy(() =>
   import("@/pages/Login").then((m) => ({ default: m.Login })),
 );
-
+const RedefinirSenha = lazy(() =>
+  import("@/pages/RedefinirSenha").then((m) => ({
+    default: m.RedefinirSenha,
+  }))
+);
 const Cadastro = lazy(() =>
   import("@/pages/Cadastro").then((m) => ({ default: m.Cadastro })),
 );
@@ -62,6 +66,11 @@ export const rotas: RouteObject[] = [
   {
     path: "/login",
     element: <Login />,
+    errorElement: <ErroDeRota />,
+  },
+  {
+    path: "/redefinir-senha",
+    element: <RedefinirSenha />,
     errorElement: <ErroDeRota />,
   },
   {
