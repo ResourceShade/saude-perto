@@ -1,131 +1,245 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { UNIDADES_DEMO } from '@/data/unidades.mock'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { buscarUnidadesPorArea, unidadePorId } from './unidades'
+import { buscarUnidades, unidadePorId } from './unidades'
 
-function respostaOk(corpo: unknown) {
-  return { ok: true, status: 200, json: async () => corpo } as Response
-}
+const { from, select, order, range } = vi.hoisted(() => ({
+  from: vi.fn(),
+  select: vi.fn(),
+  order: vi.fn(),
+  range: vi.fn(),
+}))
 
-afterEach(() => vi.restoreAllMocks())
+vi.mock('@/lib/supabase', () => ({
+  supabase: { from },
+}))
 
-describe('buscarUnidadesPorArea — mapeamento', () => {
-  it('converte elementos do OSM em unidades do domínio', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
-        respostaOk({
-          elements: [
-            {
-              type: 'node',
-              id: 99,
-              lat: -8.06,
-              lon: -34.89,
-              tags: {
-                name: 'Hospital Exemplo',
-                amenity: 'hospital',
-                'addr:street': 'Rua A',
-                'addr:housenumber': '10',
-                'addr:city': 'Recife',
-              },
-            },
-          ],
-        }),
-      ),
-    )
+const UNIDADES_TESTE = [
+  {
+    id: 'cnes-001',
+    nome: 'Hospital Exemplo',
+    tipo: 'hospital',
+    servicos: ['urgencia'],
+    endereco: 'Rua A, 10',
+    bairro: 'Centro',
+    municipio: 'Recife',
+    uf: 'PE',
+    telefone: null,
+    horario: null,
+    latitude: -8.06,
+    longitude: -34.89,
+    obtido_em: '2026-11-26',
+  },
+  {
+    id: 'cnes-002',
+    nome: 'UBS Exemplo',
+    tipo: 'ubs',
+    servicos: ['vacinacao'],
+    endereco: 'Rua B, 20',
+    bairro: 'Jardim Paulista',
+    municipio: 'Paulista',
+    uf: 'PE',
+    telefone: null,
+    horario: null,
+    latitude: -7.94,
+    longitude: -34.87,
+    obtido_em: '2026-11-26',
+  },
+  {
+    id: 'cnes-003',
+    nome: 'Unidade São José',
+    tipo: 'ubs',
+    servicos: null,
+    endereco: null,
+    bairro: 'Centro',
+    municipio: 'Olinda',
+    uf: 'PE',
+    telefone: null,
+    horario: null,
+    latitude: null,
+    longitude: null,
+    obtido_em: '2026-11-26',
+  },
+]
 
-    const r = await buscarUnidadesPorArea(-8.06, -34.89)
+beforeEach(() => {
+  vi.resetAllMocks()
+
+  from.mockReturnValue({ select })
+  select.mockReturnValue({ order })
+  order.mockReturnValue({ range })
+
+  range.mockResolvedValue({
+    data: UNIDADES_TESTE,
+    error: null,
+  })
+})
+
+describe('buscarUnidades - integração com CNES', () => {
+  it('consulta a tabela correta no Supabase', async () => {
+    await buscarUnidades('Recife')
+
+    expect(from).toHaveBeenCalledWith('unidades_saude')
+    expect(select).toHaveBeenCalledWith('*')
+  })
+
+  it('converte os registros do CNES em unidades do domínio', async () => {
+    const r = await buscarUnidades('Recife')
+
     expect(r.ok).toBe(true)
     if (!r.ok) return
 
     expect(r.dados.usouFallback).toBe(false)
+    expect(r.dados.unidades).toHaveLength(1)
+
     const [unidade] = r.dados.unidades
+
     expect(unidade?.nome).toBe('Hospital Exemplo')
     expect(unidade?.tipo).toBe('hospital')
     expect(unidade?.endereco).toBe('Rua A, 10')
-    expect(unidade?.origem).toBe('openstreetmap')
+    expect(unidade?.origem).toBe('cnes')
+    expect(unidade?.coordenadas).toEqual({
+      lat: -8.06,
+      lon: -34.89,
+    })
   })
 
-  it('descarta elementos sem nome, que não ajudam quem procura atendimento', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
-        respostaOk({
-          elements: [
-            { type: 'node', id: 1, lat: -8, lon: -34, tags: { amenity: 'clinic' } },
-            { type: 'node', id: 2, lat: -8, lon: -34, tags: { name: 'Com nome', amenity: 'clinic' } },
-          ],
-        }),
-      ),
-    )
+  it('pesquisa unidades pelo município', async () => {
+    const r = await buscarUnidades('Paulista')
 
-    const r = await buscarUnidadesPorArea(-8, -34)
-    expect(r.ok && r.dados.unidades).toHaveLength(1)
-  })
-
-  it('marca município como não informado quando a tag falta (P11)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
-        respostaOk({
-          elements: [{ type: 'node', id: 3, lat: -8, lon: -34, tags: { name: 'Sem cidade' } }],
-        }),
-      ),
-    )
-
-    const r = await buscarUnidadesPorArea(-8, -34)
-    expect(r.ok && r.dados.unidades[0]?.municipio).toBe('Município não informado')
-  })
-})
-
-/**
- * O fallback é o compromisso central de RNF11: o serviço público do
- * OpenStreetMap falha com frequência, e a aplicação nunca pode quebrar nem
- * apresentar dado demonstrativo como se fosse real.
- */
-describe('buscarUnidadesPorArea — fallback (RNF11)', () => {
-  it('degrada para dados demonstrativos quando todos os espelhos falham', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({ ok: false, status: 502 }) as Response),
-    )
-
-    const r = await buscarUnidadesPorArea(-8, -34)
     expect(r.ok).toBe(true)
     if (!r.ok) return
 
-    expect(r.dados.usouFallback).toBe(true)
-    expect(r.dados.unidades).toEqual(UNIDADES_DEMO)
-    // Todo dado do fallback precisa estar marcado como demonstrativo.
-    expect(r.dados.unidades.every((u) => u.origem === 'demonstrativo')).toBe(true)
+    expect(r.dados.unidades).toHaveLength(1)
+    expect(r.dados.unidades[0]?.municipio).toBe('Paulista')
   })
 
-  it('degrada também quando a resposta não passa na validação', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => respostaOk({ formato: 'inesperado' })))
+  it('aceita município acompanhado do estado', async () => {
+    const r = await buscarUnidades('Paulista, Pernambuco')
 
-    const r = await buscarUnidadesPorArea(-8, -34)
-    expect(r.ok && r.dados.usouFallback).toBe(true)
+    expect(r.ok && r.dados.unidades).toHaveLength(1)
   })
 
-  it('nunca lança, mesmo com erro de rede', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        throw new Error('rede caiu')
+  it('pesquisa pelo bairro', async () => {
+    const r = await buscarUnidades('Jardim Paulista')
+
+    expect(r.ok && r.dados.unidades).toHaveLength(1)
+  })
+
+  it('pesquisa pelo nome do estabelecimento', async () => {
+    const r = await buscarUnidades('Hospital Exemplo')
+
+    expect(r.ok && r.dados.unidades).toHaveLength(1)
+  })
+
+  it('ignora diferenças entre maiúsculas e minúsculas', async () => {
+    const r = await buscarUnidades('RECIFE')
+
+    expect(r.ok && r.dados.unidades).toHaveLength(1)
+  })
+
+  it('permite pesquisar sem acentos', async () => {
+    const r = await buscarUnidades('Sao Jose')
+
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+
+    expect(r.dados.unidades[0]?.nome).toBe('Unidade São José')
+  })
+
+  it('trata unidades sem coordenadas e serviços informados', async () => {
+    const r = await buscarUnidades('Olinda')
+
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+
+    expect(r.dados.unidades[0]?.coordenadas).toBeNull()
+    expect(r.dados.unidades[0]?.servicos).toEqual([])
+  })
+
+  it('retorna uma lista vazia quando não encontra unidades', async () => {
+    const r = await buscarUnidades('Cidade Inexistente')
+
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+
+    expect(r.dados.unidades).toEqual([])
+  })
+
+  it('mantém a origem CNES nos resultados', async () => {
+    const r = await buscarUnidades('Centro')
+
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+
+    expect(r.dados.unidades).toHaveLength(2)
+    expect(
+      r.dados.unidades.every((u) => u.origem === 'cnes'),
+    ).toBe(true)
+  })
+
+  it('consulta todas as páginas de registros', async () => {
+    const primeiraPagina = Array.from(
+      { length: 500 },
+      (_, i) => ({
+        ...UNIDADES_TESTE[0],
+        id: `pagina-${i}`,
       }),
     )
 
-    await expect(buscarUnidadesPorArea(-8, -34)).resolves.toMatchObject({ ok: true })
+    range
+      .mockResolvedValueOnce({
+        data: primeiraPagina,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [UNIDADES_TESTE[1]],
+        error: null,
+      })
+
+    const r = await buscarUnidades('Paulista')
+
+    expect(range).toHaveBeenCalledWith(0, 499)
+    expect(range).toHaveBeenCalledWith(500, 999)
+    expect(r.ok && r.dados.unidades).toHaveLength(1)
+  })
+})
+
+describe('buscarUnidades - tratamento de erros', () => {
+  it('trata indisponibilidade do Supabase', async () => {
+    range.mockResolvedValue({
+      data: null,
+      error: { message: 'Serviço indisponível' },
+    })
+
+    const r = await buscarUnidades('Recife')
+
+    expect(r).toEqual({
+      ok: false,
+      erro: { tipo: 'indisponivel' },
+    })
+  })
+
+  it('trata falhas de conexão sem lançar exceções', async () => {
+    range.mockRejectedValue(new Error('Falha de conexão'))
+
+    await expect(buscarUnidades('Recife')).resolves.toEqual({
+      ok: false,
+      erro: { tipo: 'rede' },
+    })
   })
 })
 
 describe('unidadePorId', () => {
-  it('encontra as unidades demonstrativas desde o início', () => {
-    expect(unidadePorId('demo-1')?.nome).toContain('UBS Exemplo')
+  it('encontra uma unidade após a pesquisa', async () => {
+    await buscarUnidades('Recife')
+
+    expect(unidadePorId('cnes-001')?.nome).toBe(
+      'Hospital Exemplo',
+    )
   })
 
-  it('devolve undefined para id inexistente', () => {
+  it('retorna undefined para um id inexistente', () => {
     expect(unidadePorId('nao-existe')).toBeUndefined()
   })
 })

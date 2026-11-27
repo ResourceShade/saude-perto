@@ -6,6 +6,7 @@ const TEXTO: Record<OrigemDado, string | null> = {
   demonstrativo: 'Dado demonstrativo. Serve para mostrar a interface e não corresponde a um serviço real.',
   openstreetmap: 'Dado do OpenStreetMap. É informação real da comunidade, mas não é cadastro oficial do SUS.',
   editorial: null,
+  cnes: 'Dados oficiais do CNES/DATASUS, Ministério da Saúde. Confirme os serviços e horários diretamente com a unidade.',
 }
 
 /**
